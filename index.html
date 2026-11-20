@@ -151,7 +151,7 @@
   #toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #15110e; color: #fff; padding: 10px 18px; border-radius: 20px; z-index: 2000; display: none; }
   .note { font-size: 11px; color: var(--muted); margin: -4px 0 12px; }
   /* desktop: mobile-only controls hidden */
-  #tabs, .daychips, .mv, .quickadd, .addmore, #mbar { display: none; }
+  #tabs, .daychips, .mvs, .quickadd, .addmore, #mbar { display: none; }
   @media (max-width: 900px) {
     body { display: block; height: 100dvh; overflow: hidden; }
     .top { height: 52px; padding: 0 12px; gap: 8px; }
@@ -176,8 +176,10 @@
     .stop { gap: 6px; padding: 8px 2px; }
     .stop .n { white-space: normal; font-size: 13.5px; }
     .tm { width: 54px; padding: 6px 2px; font-size: 13px; }
-    .sw, .x, .mv { opacity: 1; display: grid; width: 30px; height: 30px; }
-    .mv { border: 0; background: #f5f1ea; border-radius: 8px; color: var(--ink); font-size: 13px; padding: 0; place-items: center; cursor: pointer; }
+    .sw, .x { opacity: 1; display: grid; width: 28px; height: 30px; }
+    .mvs { display: flex; flex-direction: column; gap: 2px; }
+    .mv { display: grid; width: 30px; height: 17px; border: 0; background: #f5f1ea; border-radius: 5px; color: var(--ink); font-size: 11px; padding: 0; place-items: center; cursor: pointer; }
+    .day header .date { display: none; }
     .mv:disabled { opacity: .25; }
     .addmore { display: block; width: 100%; margin-top: 10px; padding: 12px; border: 1.5px dashed #d8cfc2; border-radius: 12px; background: none; font-weight: 600; color: var(--muted); cursor: pointer; }
     .card { cursor: pointer; align-items: center; }
@@ -327,8 +329,8 @@ function renderDays() {
           <span class="num" style="background:${col(pid)}">${ii + 1}</span>
           <span class="n">${EMOJI[P[pid].cat]} ${P[pid].name} ${badge(pid)}</span>
           <input class="tm" inputmode="numeric" maxlength="5" placeholder="--:--" value="${t || ''}" data-day="${di}" data-idx="${ii}">
-          <button class="mv" data-mv="-1" data-day="${di}" data-idx="${ii}" ${ii ? '' : 'disabled'} title="Earlier">↑</button>
-          <button class="mv" data-mv="1" data-day="${di}" data-idx="${ii}" ${ii < d.items.length - 1 ? '' : 'disabled'} title="Later">↓</button>
+          <span class="mvs"><button class="mv" data-mv="-1" data-day="${di}" data-idx="${ii}" ${ii ? '' : 'disabled'} title="Earlier">↑</button>
+          <button class="mv" data-mv="1" data-day="${di}" data-idx="${ii}" ${ii < d.items.length - 1 ? '' : 'disabled'} title="Later">↓</button></span>
           <button class="sw" data-day="${di}" data-idx="${ii}" title="Swap for another ${CATS[P[pid].cat][0].toLowerCase()}">⇄</button>
           <button class="x" data-day="${di}" data-idx="${ii}" title="Remove">×</button>
         </div>`; }).join('') : '<div class="empty">Drop places here</div>'}

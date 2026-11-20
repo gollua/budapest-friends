@@ -551,6 +551,11 @@ $('#gres').onclick = async e => {
   $('#gres').innerHTML = ''; $('#gq').value = ''; renderDays(); focusPlace(id); toast(`${d.name} added for everyone 🎉`);
 };
 
+// Time boxes: "13:30" already fills maxlength 5, so a plain click + typing did nothing. Select on focus; Enter saves.
+document.addEventListener('focusin', e => { const t = e.target; if (!t.classList?.contains('tm')) return;
+  t.closest('.stop').draggable = false; setTimeout(() => t.select()); });
+document.addEventListener('focusout', e => { if (e.target.classList?.contains('tm')) e.target.closest('.stop')?.setAttribute('draggable', 'true'); });
+document.addEventListener('keydown', e => { if (e.target.classList?.contains('tm') && e.key === 'Enter') e.target.blur(); });
 paintMode(); renderDays(); fitDay();
 </script>
 </body>

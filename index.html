@@ -397,7 +397,7 @@ $('#mode').onclick = e => { const m = e.target.dataset.m; if (!m) return; mode =
 $('#reset').onclick = () => { if (confirm('Replace your plan with the suggested one?')) { plan = seed(); commit('reset to the suggested plan'); renderDays(); } };
 // ---------- shared plan (Firestore): live sync + append-only history ----------
 // ponytail: last write wins if two people edit in the same second; history keeps both versions.
-const MAPS_KEY = window.MAPS_KEY || '', TRIP = 'budapest-friends', LEGS = {}, pending = new Set();
+const MAPS_KEY = window.MAPS_KEY || '', TRIP = 'budapest-friends-v2', LEGS = {}, pending = new Set();
 let db = null, F = null, me = store('me') || '', version = 0, HIST = {};
 if (window.FIREBASE_CONFIG?.projectId) {
   try {

@@ -143,6 +143,13 @@
   .hrow > div { flex: 1; font-size: 12.5px; } .hrow small { display: block; color: var(--muted); font-size: 11px; margin-top: 2px; }
   .hrow button { font-size: 11.5px; padding: 5px 9px; border-radius: 8px; border: 1px solid #d9d1c4; background: #fff; cursor: pointer; }
   .hrow button:hover { background: #15110e; color: #fff; }
+  #lockbox { position: fixed; inset: 0; background: #15110e; display: none; align-items: center; justify-content: center; z-index: 4000; }
+  body.locked #lockbox { display: flex; }
+  #lockbox > div { background: var(--panel); padding: 26px; border-radius: 16px; width: 360px; max-width: 92vw; }
+  #lockbox h3 { font: 600 22px Fraunces, serif; margin: 0 0 6px; } #lockbox p { color: var(--muted); margin: 0 0 14px; }
+  #lockbox input { width: 100%; padding: 11px; border: 1px solid var(--line); border-radius: 10px; margin-bottom: 12px; font-size: 16px; }
+  #lockbox button { width: 100%; background: #15110e; color: #fff; border: 0; padding: 11px; border-radius: 10px; cursor: pointer; font-weight: 600; }
+  #lockErr { color: var(--accent); font-size: 12.5px; margin-top: 8px; min-height: 16px; }
   #namebox { position: fixed; inset: 0; background: #15110ecc; display: none; align-items: center; justify-content: center; z-index: 3000; }
   #namebox > div { background: var(--panel); padding: 26px; border-radius: 16px; width: 380px; max-width: 92vw; }
   #namebox h3 { font: 600 22px Fraunces, serif; margin: 0 0 6px; } #namebox p { color: var(--muted); margin: 0 0 14px; }
@@ -239,6 +246,8 @@
 <div id="toast"></div>
 <div id="hist"><div class="dh"><b>🕘 History</b><button class="x" id="histClose" style="opacity:1">×</button></div>
   <div class="note" style="margin:0 16px 8px">Every change, newest first. Restoring is logged too, so nothing is lost.</div><div id="histList"></div></div>
+<div id="lockbox"><div><h3>🔒 Budapest trip</h3><p>Enter the group password.</p>
+  <input id="lockIn" type="password" autocomplete="current-password" placeholder="Password"><button id="lockGo">Open</button><div id="lockErr"></div></div></div>
 <div id="namebox"><div><h3>Who are you? 👋</h3><p>Your name shows next to your changes, so everyone can see who changed what.</p>
   <input id="nameIn" maxlength="40" placeholder="Your name" autocomplete="given-name"><button id="nameSave">Let's go</button></div></div>
 
@@ -454,8 +463,8 @@ $('#mode').onclick = e => { const m = e.target.dataset.m; if (!m) return; mode =
 $('#reset').onclick = () => { if (confirm('Replace your plan with the suggested one?')) { plan = seed(); commit('reset to the suggested plan'); renderDays(); } };
 // ---------- shared plan (Firestore): live sync + append-only history ----------
 // ponytail: last write wins if two people edit in the same second; history keeps both versions.
-const MAPS_KEY = window.MAPS_KEY || '', TRIP = 'budapest-friends-v2', LEGS = {}, pending = new Set();
-let db = null, F = null, me = store('me') || '', version = 0, HIST = {};
+const MAPS_KEY = window.MAPS_KEY || '', OLD_TRIP = 'budapest-friends-v2', LEGS = {}, pending = new Set();
+let db = null, F = null, me = store('me') || '', version = 0, HIST = {}, TRIP = null;
 if (window.FIREBASE_CONFIG?.projectId) {
   try {
     const A = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js');
@@ -505,7 +514,18 @@ async function fetchLeg(a, b, m, k) {
     await F.setDoc(F.doc(db, 'trips', TRIP, 'legs', k), { s: parseInt(rt.duration), m: rt.distanceMeters, path: rt.polyline.encodedPolyline, mode: m });
   } catch (e) { console.warn(e); }
 }
-if (db) {
+const tripId = async pw => 'bp-' + [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode('budapest-trip:' + pw)))]
+  .slice(0, 16).map(b => b.toString(16).padStart(2, '0')).join('');
+async function migrateOld() { // ponytail: one-time copy from the old open plan; remove after the old doc is deleted
+  const o = await F.getDoc(F.doc(db, 'trips', OLD_TRIP)); if (!o.exists()) return false;
+  for (const sub of ['history', 'places', 'legs']) {
+    const qs = await F.getDocs(F.collection(db, 'trips', OLD_TRIP, sub));
+    for (const d of qs.docs) await F.setDoc(F.doc(db, 'trips', TRIP, sub, d.id), d.data());
+  }
+  await F.setDoc(tripRef(), o.data());
+  return true;
+}
+function startSync() {
   let started = false;
   F.onSnapshot(col_('legs'), qs => { qs.docChanges().forEach(c => LEGS[c.doc.id] = c.doc.data()); if (started) renderDays(); });
   F.onSnapshot(col_('places'), qs => {
@@ -513,7 +533,7 @@ if (db) {
     if (started) return renderDays();
     started = true;
     F.onSnapshot(tripRef(), snap => {
-      if (!snap.exists()) { plan = seed(); return commit('baseline plan', 'Plan'); }
+      if (!snap.exists()) return;
       const d = snap.data();
       version = Math.max(version, d.version || 0);
       $('#lastEdit').textContent = `Last change: ${d.by} ${d.msg}`;
@@ -521,6 +541,21 @@ if (db) {
       plan = fromDoc(d.days); store('plan', plan); renderDays();
     });
   });
+  $('#gsearch').hidden = false;
+  if (me) $('#who').textContent = '👤 ' + me; else { $('#namebox').style.display = 'flex'; $('#nameIn').focus(); }
+}
+async function unlock(pw, quiet) {
+  TRIP = await tripId(pw);
+  let ok = (await F.getDoc(tripRef())).exists();
+  if (!ok && new URLSearchParams(location.search).has('migrate')) ok = await migrateOld();
+  if (!ok) { TRIP = null; store('pw', null); if (!quiet) { $('#lockErr').textContent = 'Wrong password'; $('#lockIn').select(); } return; }
+  store('pw', pw); document.body.classList.remove('locked'); startSync();
+}
+if (db) {
+  document.body.classList.add('locked');
+  $('#lockIn').onkeydown = e => { if (e.key === 'Enter') $('#lockGo').click(); };
+  $('#lockGo').onclick = () => $('#lockIn').value && unlock($('#lockIn').value);
+  if (store('pw')) unlock(store('pw'), true); else $('#lockIn').focus();
 }
 
 // ---------- who am I ----------
@@ -528,8 +563,7 @@ const setMe = n => { me = n.trim().slice(0, 40); store('me', me); $('#who').text
 $('#who').onclick = () => { $('#nameIn').value = me; $('#namebox').style.display = 'flex'; $('#nameIn').focus(); };
 $('#nameSave').onclick = () => $('#nameIn').value.trim() && setMe($('#nameIn').value);
 $('#nameIn').onkeydown = e => { if (e.key === 'Enter') $('#nameSave').click(); }; // must not return false: that blocks typing
-if (me) $('#who').textContent = '👤 ' + me;
-else if (db) { $('#namebox').style.display = 'flex'; $('#nameIn').focus(); }
+
 
 // ---------- history ----------
 $('#histClose').onclick = () => $('#hist').classList.remove('open');
@@ -573,7 +607,7 @@ const osmSearch = q => fetch('https://nominatim.openstreetmap.org/search?format=
     return { id: 'osm' + o.osm_id, displayName: { text: name }, location: { latitude: +o.lat, longitude: +o.lon },
       formattedAddress: o.display_name.split(',').slice(1, 4).join(',').trim(), primaryTypeDisplayName: { text: o.type.replace(/_/g, ' ') },
       googleMapsUri: 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(name + ' Budapest') }; }) })).catch(() => ({}));
-if (db) $('#gsearch').hidden = false;
+
 $('#gq').onkeydown = async e => {
   if (e.key !== 'Enter' || !e.target.value.trim()) return;
   $('#gres').innerHTML = '<div class="note">Searching…</div>';

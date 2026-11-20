@@ -247,7 +247,7 @@ function renderLib() {
   const all = Object.values(P), q = $('#q').value.toLowerCase();
   $('#chips').innerHTML = Object.entries(CATS).filter(([c]) => all.some(p => p.cat === c)).map(([c, [label]]) =>
     `<span class="chip ${off.has(c) ? 'off' : ''}" data-c="${c}">${EMOJI[c]} ${label} <b>${all.filter(p => p.cat === c).length}</b></span>`).join('');
-  const shown = all.filter(p => !off.has(p.cat) && (p.name + p.type + p.note).toLowerCase().includes(q));
+  const shown = all.filter(p => !off.has(p.cat) && (!q || norm(p.name + ' ' + p.type + ' ' + p.note).includes(norm(q)) || fuzzyName(p, q)));
   $('#count').textContent = `${shown.length} of ${all.length}`;
   $('#libList').innerHTML = Object.keys(CATS).map(c => {
     const ps = shown.filter(p => p.cat === c);
@@ -502,14 +502,14 @@ const guessCat = t => [[/restaurant|food|diner|bistro|steak|pizza|grill/i, 'food
 const gid = g => 'g_' + g.id.replace(/[^\w-]/g, '');
 let GRES = [];
 // Typo-tolerant match against places already in the list ("Simpla kert" → Szimpla Kert).
-const norm = t => String(t).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9 ]/g, '').trim();
+function norm(t) { return String(t).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9 ]/g, '').trim(); }
 function lev(a, b) { const d = Array.from({ length: b.length + 1 }, (_, i) => i);
   for (let i = 1; i <= a.length; i++) { let prev = d[0]; d[0] = i;
     for (let j = 1; j <= b.length; j++) { const t = d[j]; d[j] = Math.min(d[j] + 1, d[j - 1] + 1, prev + (a[i - 1] === b[j - 1] ? 0 : 1)); prev = t; } }
   return d[b.length]; }
-const localMatches = q => { q = norm(q); if (q.length < 3) return [];
-  return Object.values(P).filter(p => { const n = norm(p.name.replace(/<[^>]*>|&\w+;/g, ''));
-    return n.includes(q) || lev(q, n.slice(0, q.length + 1)) <= Math.max(1, Math.floor(q.length / 4)); }).slice(0, 4); };
+function fuzzyName(p, q) { q = norm(q); if (q.length < 3) return false; const n = norm(p.name.replace(/<[^>]*>|&\w+;/g, ''));
+  return n.includes(q) || lev(q, n.slice(0, q.length + 1)) <= Math.max(1, Math.floor(q.length / 4)); }
+const localMatches = q => Object.values(P).filter(p => fuzzyName(p, q)).slice(0, 4);
 // Without a Maps key, fall back to OpenStreetMap search (free, no key) in the same shape as Google results.
 const osmSearch = q => fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&bounded=1&viewbox=18.90,47.62,19.30,47.35&q=' + encodeURIComponent(q))
   .then(r => r.json()).then(a => ({ places: a.map(o => { const name = o.name || o.display_name.split(',')[0];

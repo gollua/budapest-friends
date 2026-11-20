@@ -179,7 +179,7 @@
   <div class="sticky">
     <h2>Places <span id="count"></span></h2>
     <input class="search" type="search" id="q" placeholder="Search places, food, vibes…">
-    <div id="gsearch" hidden><input class="search gq" id="gq" placeholder="＋ Find any place on Google… (press Enter)"><div id="gres"></div></div>
+    <div id="gsearch" hidden><input class="search gq" id="gq" placeholder="＋ Add a place: type a name and press Enter"><div id="gres"></div></div>
     <div class="chips" id="chips"></div>
   </div>
   <div id="libList"></div>
@@ -410,17 +410,17 @@ const col_ = (...p) => F.collection(db, 'trips', TRIP, ...p);
 const tripRef = () => F.doc(db, 'trips', TRIP);
 const toDoc = () => plan.map(d => ({ items: d.items.map(([p, t]) => ({ p, t: t || '' })) }));
 const fromDoc = days => seed().map((d, i) => ({ ...d, items: (days?.[i]?.items || []).map(x => [x.p, x.t]).filter(([p]) => P[p]) }));
-function commit(msg) {
+function commit(msg, by = me || 'someone') {
   store('plan', plan);
   if (!db) return;
-  const rec = { days: toDoc(), by: me || 'someone', msg, version: ++version, at: F.serverTimestamp() };
+  const rec = { days: toDoc(), by, msg, version: ++version, at: F.serverTimestamp() };
   F.setDoc(tripRef(), rec).catch(e => toast('⚠ Not saved: ' + e.code));
   F.addDoc(col_('history'), rec).catch(e => console.warn(e));
 }
 function addCustom(d) {
   if (P[d.id] || !CATS[d.cat]) return;
   P[d.id] = { id: d.id, cat: d.cat, name: esc(d.name), type: esc(d.type || CATS[d.cat][0]), cost: '', note: `Added by ${esc(d.by)} from Google.` };
-  geo[d.id] = { lat: +d.lat, lng: +d.lng, uri: /^https:\/\/maps\.google\.com\//.test(d.uri) ? d.uri : '#', rating: +d.rating || 0, votes: +d.votes || 0, addr: esc(d.addr), status: d.status };
+  geo[d.id] = { lat: +d.lat, lng: +d.lng, uri: /^https:\/\/(maps|www)\.google\.com\//.test(d.uri) ? d.uri : '#', rating: +d.rating || 0, votes: +d.votes || 0, addr: esc(d.addr), status: d.status };
 }
 function decodePath(str) { // Google encoded polyline → [[lat,lng]]
   let i = 0, lat = 0, lng = 0;
@@ -456,7 +456,7 @@ if (db) {
     if (started) return renderDays();
     started = true;
     F.onSnapshot(tripRef(), snap => {
-      if (!snap.exists()) { plan = seed(); return commit('started the shared plan'); }
+      if (!snap.exists()) { plan = seed(); return commit('baseline plan', 'Plan'); }
       const d = snap.data();
       version = Math.max(version, d.version || 0);
       $('#lastEdit').textContent = `Last change: ${d.by} ${d.msg}`;
@@ -501,11 +501,17 @@ const guessCat = t => [[/restaurant|food|diner|bistro|steak|pizza|grill/i, 'food
   .find(([r]) => r.test(t || ''))?.[1] || 'activity';
 const gid = g => 'g_' + g.id.replace(/[^\w-]/g, '');
 let GRES = [];
-if (MAPS_KEY && db) $('#gsearch').hidden = false;
+// Without a Maps key, fall back to OpenStreetMap search (free, no key) in the same shape as Google results.
+const osmSearch = q => fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&bounded=1&viewbox=18.90,47.62,19.30,47.35&q=' + encodeURIComponent(q))
+  .then(r => r.json()).then(a => ({ places: a.map(o => { const name = o.name || o.display_name.split(',')[0];
+    return { id: 'osm' + o.osm_id, displayName: { text: name }, location: { latitude: +o.lat, longitude: +o.lon },
+      formattedAddress: o.display_name.split(',').slice(1, 4).join(',').trim(), primaryTypeDisplayName: { text: o.type.replace(/_/g, ' ') },
+      googleMapsUri: 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(name + ' Budapest') }; }) })).catch(() => ({}));
+if (db) $('#gsearch').hidden = false;
 $('#gq').onkeydown = async e => {
   if (e.key !== 'Enter' || !e.target.value.trim()) return;
-  $('#gres').innerHTML = '<div class="note">Searching Google…</div>';
-  const r = await fetch('https://places.googleapis.com/v1/places:searchText', { method: 'POST',
+  $('#gres').innerHTML = '<div class="note">Searching…</div>';
+  const r = !MAPS_KEY ? await osmSearch(e.target.value) : await fetch('https://places.googleapis.com/v1/places:searchText', { method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': MAPS_KEY,
       'X-Goog-FieldMask': 'places.id,places.displayName,places.location,places.googleMapsUri,places.rating,places.userRatingCount,places.formattedAddress,places.businessStatus,places.primaryTypeDisplayName' },
     body: JSON.stringify({ textQuery: e.target.value, maxResultCount: 6, locationBias: { circle: { center: { latitude: 47.4979, longitude: 19.0402 }, radius: 15000 } } }) })

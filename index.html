@@ -470,7 +470,7 @@ if (db) {
 const setMe = n => { me = n.trim().slice(0, 40); store('me', me); $('#who').textContent = '👤 ' + me; $('#namebox').style.display = 'none'; };
 $('#who').onclick = () => { $('#nameIn').value = me; $('#namebox').style.display = 'flex'; $('#nameIn').focus(); };
 $('#nameSave').onclick = () => $('#nameIn').value.trim() && setMe($('#nameIn').value);
-$('#nameIn').onkeydown = e => e.key === 'Enter' && $('#nameSave').click();
+$('#nameIn').onkeydown = e => { if (e.key === 'Enter') $('#nameSave').click(); }; // must not return false: that blocks typing
 if (me) $('#who').textContent = '👤 ' + me;
 else if (db) { $('#namebox').style.display = 'flex'; $('#nameIn').focus(); }
 

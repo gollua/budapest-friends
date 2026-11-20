@@ -150,15 +150,50 @@
   #namebox button { width: 100%; background: #15110e; color: #fff; border: 0; padding: 11px; border-radius: 10px; cursor: pointer; font-weight: 600; }
   #toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #15110e; color: #fff; padding: 10px 18px; border-radius: 20px; z-index: 2000; display: none; }
   .note { font-size: 11px; color: var(--muted); margin: -4px 0 12px; }
+  /* desktop: mobile-only controls hidden */
+  #tabs, .daychips, .mv, .quickadd, .addmore, #mbar { display: none; }
   @media (max-width: 900px) {
-    body { display: block; height: auto; overflow: auto; }
-    .top { flex-wrap: wrap; gap: 10px; padding: 12px 14px; position: sticky; top: 0; z-index: 1001; }
-    .brand small { display: block; margin: 2px 0 0; }
-    #map { height: 55vh; position: sticky; top: 0; }
-    aside { overflow: visible; border: 0 !important; }
-    #plan { order: -1; }
-    .sw, .x { opacity: 1; }
-    #swap { width: calc(100vw - 16px); }
+    body { display: block; height: 100dvh; overflow: hidden; }
+    .top { height: 52px; padding: 0 12px; gap: 8px; }
+    .brand { font-size: 19px; } .brand small, .top .spacer, .top > .seg, #reset, #histBtn { display: none; }
+    .top #who { margin-left: auto; padding: 7px 12px; }
+    #lib, #plan, #map { position: fixed; top: 52px; bottom: calc(62px + env(safe-area-inset-bottom)); left: 0; right: 0; height: auto; display: none; border: 0 !important; }
+    body[data-tab="plan"] #plan, body[data-tab="lib"] #lib, body[data-tab="map"] #map { display: block; }
+    #plan { padding: 0 12px 24px; overflow-y: auto; }
+    #lib { overflow-y: auto; }
+    #plan > h2, #plan > .note { display: none; }
+    #mbar { display: block; position: sticky; top: 0; z-index: 3; background: var(--panel); margin: 0 -12px 10px; padding: 10px 12px 8px; border-bottom: 1px solid var(--line); }
+    #mbar .seg { background: #efe8dc; margin-bottom: 8px; } #mbar .seg button { flex: 1; color: var(--ink); padding: 7px 4px; }
+    #mbar .seg button.on { background: #15110e; color: #fff; }
+    .daychips { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+    .daychips button { flex: 1; min-width: 64px; border: 1px solid var(--line); background: #fff; border-radius: 12px; padding: 6px 4px; line-height: 1.1; cursor: pointer; }
+    .daychips button b { display: block; font: 600 17px Fraunces, serif; }
+    .daychips button small { font-size: 10px; font-weight: 600; letter-spacing: .5px; color: var(--muted); text-transform: uppercase; }
+    .daychips button.on { background: #15110e; color: #fff; border-color: #15110e; } .daychips button.on small { color: #e9c46a; }
+    #mlast { font-size: 11px; color: var(--muted); margin-top: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .day:not(.sel) { display: none; }
+    .day.sel { outline: 0; }
+    .stop { gap: 6px; padding: 8px 2px; }
+    .stop .n { white-space: normal; font-size: 13.5px; }
+    .tm { width: 54px; padding: 6px 2px; font-size: 13px; }
+    .sw, .x, .mv { opacity: 1; display: grid; width: 30px; height: 30px; }
+    .mv { border: 0; background: #f5f1ea; border-radius: 8px; color: var(--ink); font-size: 13px; padding: 0; place-items: center; cursor: pointer; }
+    .mv:disabled { opacity: .25; }
+    .addmore { display: block; width: 100%; margin-top: 10px; padding: 12px; border: 1.5px dashed #d8cfc2; border-radius: 12px; background: none; font-weight: 600; color: var(--muted); cursor: pointer; }
+    .card { cursor: pointer; align-items: center; }
+    .card .d { -webkit-line-clamp: 1; }
+    .card .inplan { display: block; }
+    .quickadd { display: block; flex: none; border: 0; background: #15110e; color: #fff; border-radius: 10px; padding: 8px 10px; font-weight: 600; font-size: 12px; cursor: pointer; }
+    .quickadd.done { background: #2b7a3d; }
+    #tabs { display: flex; position: fixed; left: 0; right: 0; bottom: 0; height: calc(62px + env(safe-area-inset-bottom)); padding-bottom: env(safe-area-inset-bottom);
+            background: #15110e; z-index: 1200; }
+    #tabs button { flex: 1; border: 0; background: none; color: #a99e8f; font-size: 11px; font-weight: 600; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; cursor: pointer; }
+    #tabs button span { font-size: 21px; line-height: 1; filter: grayscale(1) opacity(.7); }
+    #tabs button.on { color: #fff; } #tabs button.on span { filter: none; }
+    #hist { width: 100vw; bottom: calc(62px + env(safe-area-inset-bottom)); }
+    #swap { width: calc(100vw - 16px); max-height: 60vh; }
+    #toast { bottom: calc(80px + env(safe-area-inset-bottom)); }
+    .leaflet-popup-content-wrapper { max-width: calc(100vw - 30px); } .iw { width: min(300px, calc(100vw - 50px)); }
   }
 </style>
 </head>
@@ -188,10 +223,15 @@
 <div id="map"></div>
 
 <aside id="plan">
+  <div id="mbar"><div class="daychips" id="daychips"></div><div id="mlast"></div></div>
   <h2>Itinerary <span>drag places into a day</span></h2>
   <div class="note" id="lastEdit">Shared plan: everyone with the link edits the same itinerary. "≈" = estimated time.</div>
   <div id="days"></div>
 </aside>
+<nav id="tabs">
+  <button data-tab="plan"><span>🗓️</span>Plan</button><button data-tab="map"><span>🗺️</span>Map</button>
+  <button data-tab="lib"><span>📍</span>Places</button><button data-tab="hist"><span>🕘</span>History</button>
+</nav>
 <div id="toast"></div>
 <div id="hist"><div class="dh"><b>🕘 History</b><button class="x" id="histClose" style="opacity:1">×</button></div>
   <div class="note" style="margin:0 16px 8px">Every change, newest first. Restoring is logged too, so nothing is lost.</div><div id="histList"></div></div>
@@ -257,12 +297,17 @@ function renderLib() {
         <div class="t"><div class="n">${p.name}${SAVED.has(p.id) ? '<span class="heart">♥</span>' : ''} ${badge(p.id)}</div>
           <div class="ty">${p.type}</div>${p.cost ? `<div class="cost">💰 ${p.cost}</div>` : ''}<div class="d">${p.note}</div>
           ${inPlanTxt(p.id) ? `<div class="inplan">${inPlanTxt(p.id)}</div>` : ''}</div>
+        <button class="quickadd ${plan[selDay].items.some(([x]) => x === p.id) ? 'done' : ''}" data-qadd="${p.id}">${plan[selDay].items.some(([x]) => x === p.id) ? '✓' : '＋'} ${dl(selDay)}</button>
       </div>`).join('') : '';
   }).join('');
 }
 $('#chips').onclick = e => { const c = e.target.closest('[data-c]')?.dataset.c; if (!c) return; off.has(c) ? off.delete(c) : off.add(c); store('off', [...off]); renderLib(); drawMap(); };
 $('#q').oninput = renderLib;
-$('#libList').onclick = e => { const el = e.target.closest('[data-pid]'); if (el) focusPlace(el.dataset.pid); };
+$('#libList').onclick = e => {
+  const q = e.target.dataset.qadd;
+  if (q) { if (!plan[selDay].items.some(([x]) => x === q)) { plan[selDay].items.push([q, '']); commit(`added ${P[q].name} to ${dl(selDay)}`); renderDays(); toast(`Added to ${dl(selDay)} ✓`); } return; }
+  const el = e.target.closest('[data-pid]'); if (el) showPlace(el.dataset.pid);
+};
 
 // ---------- itinerary ----------
 function renderDays() {
@@ -282,19 +327,27 @@ function renderDays() {
           <span class="num" style="background:${col(pid)}">${ii + 1}</span>
           <span class="n">${EMOJI[P[pid].cat]} ${P[pid].name} ${badge(pid)}</span>
           <input class="tm" inputmode="numeric" maxlength="5" placeholder="--:--" value="${t || ''}" data-day="${di}" data-idx="${ii}">
+          <button class="mv" data-mv="-1" data-day="${di}" data-idx="${ii}" ${ii ? '' : 'disabled'} title="Earlier">↑</button>
+          <button class="mv" data-mv="1" data-day="${di}" data-idx="${ii}" ${ii < d.items.length - 1 ? '' : 'disabled'} title="Later">↓</button>
           <button class="sw" data-day="${di}" data-idx="${ii}" title="Swap for another ${CATS[P[pid].cat][0].toLowerCase()}">⇄</button>
           <button class="x" data-day="${di}" data-idx="${ii}" title="Remove">×</button>
         </div>`; }).join('') : '<div class="empty">Drop places here</div>'}
+      <button class="addmore" data-addmore="${di}">＋ Add a place to ${dl}</button>
       </div></div>`;
   }).join('');
+  $('#daychips').innerHTML = plan.map((d, i) => { const [dow, dn] = d.label.split(' · ')[0].split(' ');
+    return `<button class="${i === selDay ? 'on' : ''}" data-chip="${i}"><small>${dow}</small><b>${dn}</b></button>`; }).join('');
   renderLib(); drawMap();
 }
 $('#days').onclick = e => {
   const t = e.target;
   if (t.classList.contains('sw')) return openSwap(t);
+  if (t.dataset.mv) { const d = plan[t.dataset.day].items, i = +t.dataset.idx, j = i + +t.dataset.mv;
+    [d[i], d[j]] = [d[j], d[i]]; commit(`moved ${P[d[j][0]].name} ${+t.dataset.mv < 0 ? 'earlier' : 'later'} on ${dl(t.dataset.day)}`); return renderDays(); }
+  if (t.dataset.addmore) return setTab('lib');
   if (t.classList.contains('x')) { const [[rp]] = plan[t.dataset.day].items.splice(t.dataset.idx, 1); commit(`removed ${P[rp].name} from ${dl(t.dataset.day)}`); return renderDays(); }
   const h = t.closest('[data-sel]'); if (h) { selDay = +h.dataset.sel; renderDays(); return fitDay(); }
-  const s = t.closest('.stop'); if (s && t.tagName !== 'INPUT') focusPlace(s.dataset.pid);
+  const s = t.closest('.stop'); if (s && t.tagName !== 'INPUT') showPlace(s.dataset.pid);
 };
 $('#days').onchange = e => { const t = e.target; if (t.classList.contains('tm')) { plan[t.dataset.day].items[t.dataset.idx][1] = t.value = hhmm(t.value); commit(`set ${P[plan[t.dataset.day].items[t.dataset.idx][0]].name} to ${t.value || 'no time'} on ${dl(t.dataset.day)}`); } };
 
@@ -556,6 +609,22 @@ document.addEventListener('focusin', e => { const t = e.target; if (!t.classList
   t.closest('.stop').draggable = false; setTimeout(() => t.select()); });
 document.addEventListener('focusout', e => { if (e.target.classList?.contains('tm')) e.target.closest('.stop')?.setAttribute('draggable', 'true'); });
 document.addEventListener('keydown', e => { if (e.target.classList?.contains('tm') && e.key === 'Enter') e.target.blur(); });
+// ---------- mobile: tabs ----------
+const mobile = matchMedia('(max-width: 900px)');
+function setTab(t) {
+  if (t === 'hist') { $('#histBtn').click(); t = document.body.dataset.tab || 'plan'; }
+  document.body.dataset.tab = t;
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
+  if (t === 'map') setTimeout(() => { map.invalidateSize(); }, 50);
+}
+function showPlace(id) { // on phones, jump to the map first
+  if (mobile.matches) { setTab('map'); setTimeout(() => focusPlace(id), 80); } else focusPlace(id);
+}
+$('#tabs').onclick = e => { const b = e.target.closest('[data-tab]'); if (!b) return; setTab(b.dataset.tab); if (b.dataset.tab === 'map') setTimeout(fitDay, 120); };
+$('#daychips').onclick = e => { const b = e.target.closest('[data-chip]'); if (!b) return; selDay = +b.dataset.chip; renderDays(); fitDay(); };
+if (mobile.matches) $('#mbar').prepend($('#mode')); // travel mode lives in the Plan tab on phones
+new MutationObserver(() => $('#mlast').textContent = $('#lastEdit').textContent).observe($('#lastEdit'), { childList: true, characterData: true, subtree: true });
+setTab('plan');
 paintMode(); renderDays(); fitDay();
 </script>
 </body>

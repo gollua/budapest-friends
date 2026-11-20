@@ -501,6 +501,15 @@ const guessCat = t => [[/restaurant|food|diner|bistro|steak|pizza|grill/i, 'food
   .find(([r]) => r.test(t || ''))?.[1] || 'activity';
 const gid = g => 'g_' + g.id.replace(/[^\w-]/g, '');
 let GRES = [];
+// Typo-tolerant match against places already in the list ("Simpla kert" → Szimpla Kert).
+const norm = t => String(t).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9 ]/g, '').trim();
+function lev(a, b) { const d = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) { let prev = d[0]; d[0] = i;
+    for (let j = 1; j <= b.length; j++) { const t = d[j]; d[j] = Math.min(d[j] + 1, d[j - 1] + 1, prev + (a[i - 1] === b[j - 1] ? 0 : 1)); prev = t; } }
+  return d[b.length]; }
+const localMatches = q => { q = norm(q); if (q.length < 3) return [];
+  return Object.values(P).filter(p => { const n = norm(p.name.replace(/<[^>]*>|&\w+;/g, ''));
+    return n.includes(q) || lev(q, n.slice(0, q.length + 1)) <= Math.max(1, Math.floor(q.length / 4)); }).slice(0, 4); };
 // Without a Maps key, fall back to OpenStreetMap search (free, no key) in the same shape as Google results.
 const osmSearch = q => fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&bounded=1&viewbox=18.90,47.62,19.30,47.35&q=' + encodeURIComponent(q))
   .then(r => r.json()).then(a => ({ places: a.map(o => { const name = o.name || o.display_name.split(',')[0];
@@ -516,8 +525,11 @@ $('#gq').onkeydown = async e => {
       'X-Goog-FieldMask': 'places.id,places.displayName,places.location,places.googleMapsUri,places.rating,places.userRatingCount,places.formattedAddress,places.businessStatus,places.primaryTypeDisplayName' },
     body: JSON.stringify({ textQuery: e.target.value, maxResultCount: 6, locationBias: { circle: { center: { latitude: 47.4979, longitude: 19.0402 }, radius: 15000 } } }) })
     .then(r => r.json()).catch(() => ({}));
-  GRES = r.places || [];
-  $('#gres').innerHTML = GRES.map((g, i) => {
+  const local = localMatches(e.target.value);
+  GRES = (r.places || []).filter(g => !local.some(p => p.id === gid(g)));
+  const localHtml = local.map(p => `<div class="gr"><div class="n">${EMOJI[p.cat]} ${p.name}</div><div class="s">${p.type}</div>
+    <div class="act"><span class="note" style="margin:0">✓ Already in the list</span><button data-show="${p.id}">Show on map</button></div></div>`).join('');
+  $('#gres').innerHTML = localHtml + GRES.map((g, i) => {
     const cat = guessCat(g.primaryTypeDisplayName?.text);
     const closedTag = g.businessStatus && g.businessStatus !== 'OPERATIONAL' ? '<span class="warn">⚠ closed</span>' : '';
     const act = P[gid(g)] ? '<span class="note" style="margin:0">✓ Already in the list</span>'
@@ -526,9 +538,10 @@ $('#gq').onkeydown = async e => {
     return `<div class="gr"><div class="n">${esc(g.displayName?.text)} ${closedTag}</div>
       <div class="s">${esc(g.primaryTypeDisplayName?.text || '')}${g.rating ? ` · ★ ${g.rating} (${g.userRatingCount})` : ''} · ${esc((g.formattedAddress || '').replace(/, Hungary$/, ''))}</div>
       <div class="act">${act}</div></div>`;
-  }).join('') || `<div class="note">${r.error ? '⚠ ' + esc(r.error.message) : 'No results.'}</div>`;
+  }).join('') || (localHtml ? '' : `<div class="note">${r.error ? '⚠ ' + esc(r.error.message) : 'No results. Check the spelling (Google search, once the key is added, handles typos).'}</div>`);
 };
 $('#gres').onclick = async e => {
+  if (e.target.dataset.show) return focusPlace(e.target.dataset.show);
   const i = e.target.dataset.gadd; if (i === undefined) return;
   const g = GRES[i], cat = $(`[data-gcat="${i}"]`).value, id = gid(g);
   const d = { id, cat, name: g.displayName?.text || 'Place', type: g.primaryTypeDisplayName?.text || CATS[cat][0], lat: g.location.latitude, lng: g.location.longitude,

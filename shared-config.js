@@ -7,4 +7,4 @@ window.FIREBASE_CONFIG = {
   messagingSenderId: "391062300397",
   appId: "1:391062300397:web:af7407c17d458787b30ee4",
 };
-window.MAPS_KEY = ""; // filled in below
+window.MAPS_KEY = "AIzaSyDnAT4G2ktv8mIKJ63uay8vBMBM-g6c8gM";
